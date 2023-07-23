@@ -24,8 +24,7 @@ func main() {
 }
 
 func parent() {
-	ex, _ := os.Executable()
-	cmd := exec.Command(ex, append([]string{"child"}, os.Args[2:]...)...)
+	cmd := exec.Command("/proc/self/exe", append([]string{"child"}, os.Args[2:]...)...)
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS,
@@ -41,10 +40,12 @@ func parent() {
 }
 
 func child() {
-	must(syscall.Mount("rootfs", "rootfs", "", syscall.MS_BIND, ""))
-	must(os.MkdirAll("rootfs/oldrootfs", 0700))
-	must(syscall.PivotRoot("rootfs", "rootfs/oldrootfs"))
-	must(os.Chdir("/"))
+	//must("mount", syscall.Mount("rootfs", "rootfs", "", syscall.MS_BIND, ""))
+	//must("mkdir", os.MkdirAll("rootfs/oldrootfs", 0700))
+	//must("pivot", syscall.PivotRoot("rootfs", "rootfs/oldrootfs"))
+	syscall.Sethostname([]byte("container"))
+	must("chdir", os.Chdir("/"))
+	must("mount", syscall.Mount("proc", "proc", "proc", 0, ""))
 
 	cmd := exec.Command(os.Args[2], os.Args[3:]...)
 	cmd.Stdin = os.Stdin
@@ -52,13 +53,14 @@ func child() {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		log.Printf("ERROR: %v\n", err)
+		log.Fatal("ERROR: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func must(err error) {
+func must(label string, err error) {
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(label, ": ", err)
+		os.Exit(1)
 	}
 }
